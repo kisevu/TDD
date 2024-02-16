@@ -21,9 +21,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
+import static java.lang.StringTemplate.STR;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -117,5 +118,59 @@ public class PostControllerTest {
                 .contentType("application/json")
                         .content(json))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void shouldNotCreatePostWhenPostIsInvalid() throws Exception {
+        var post  = new Post(
+                4,4,"","",null
+        );
+        when(postRepository.save(post))
+                .thenReturn(post);
+        var json = """
+        {
+        "id": %s,
+        "userId": %s,
+        "title":"%s",
+        "body":"%s",
+        "version": null
+         }
+    """.formatted(post.id(), post.userId(), post.title(), post.body());
+        mockMvc.perform(post("/api/posts")
+                        .contentType("application/json")
+                        .content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldUpdatePostWhenGivenValidPost() throws Exception {
+        Post updated =
+                new Post(1,1,"new title","new body",1);
+        when(postRepository.findById(1))
+                .thenReturn(Optional.of(updated));
+        when(postRepository.save(updated))
+                .thenReturn(updated);
+        var requestBody = """
+        {
+         "id": "%s",
+         "userId": "%s",
+         "title": "%s",
+         "body": "%s",
+         "version": "%s"
+        }
+        """.formatted(updated.id(), updated.userId(), updated.title(), updated.body(), updated.version());
+
+        mockMvc.perform(put("/api/posts/1")
+                .contentType("application/json")
+                .content(requestBody))
+                .andExpect(status().isOk());
+    }
+    @Test
+    void shouldDeletePostWhenGivenValidId() throws Exception {
+        doNothing().when(postRepository).deleteById(1);
+        mockMvc.perform(delete("/api/posts/1"))
+                .andExpect(status().isNoContent());
+        verify(postRepository,times(1))
+                .deleteById(1);
     }
 }
